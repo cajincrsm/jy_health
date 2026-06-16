@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0F6E56">
+<title>건강 트래커</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root{
+    --bg:#0e1512; --surface:#16201c; --surface2:#1d2a25; --line:#27352f;
+    --text:#eef3f0; --muted:#9fb3aa; --hint:#6c8077;
+    --teal:#2dccA5; --teal-d:#0f6e56; --blue:#378add; --water:#46a8e0;
+    --amber:#ef9f27; --red:#e24b4a; --green:#97c459;
+    --radius:14px; --radius-sm:10px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+    padding:18px 16px 40px; max-width:520px; margin:0 auto;
+    -webkit-font-smoothing:antialiased;
+  }
+  .head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px; }
+  .head h1{ font-size:20px; font-weight:600; letter-spacing:-0.3px; }
+  .head .date{ font-size:13px; color:var(--muted); }
+  .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  .stat{ background:var(--surface); border-radius:var(--radius); padding:14px 15px; }
+  .stat .label{ font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .stat .val{ font-size:24px; font-weight:600; letter-spacing:-0.5px; }
+  .stat .val small{ font-size:13px; font-weight:400; color:var(--muted); }
+  .stat .track{ height:6px; background:var(--bg); border-radius:99px; overflow:hidden; margin-top:9px; }
+  .stat .fill{ height:100%; width:0; background:var(--teal); border-radius:99px; transition:width .35s ease; }
+  .stat .sub{ font-size:11px; color:var(--hint); margin-top:6px; }
+
+  .section-h{ display:flex; align-items:center; gap:7px; margin:22px 2px 11px; font-size:14px; font-weight:600; }
+  .section-h .dot{ width:8px; height:8px; border-radius:99px; }
+
+  .water{ background:var(--surface); border-radius:var(--radius); padding:15px 16px; }
+  .water-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+  .water-top .ml{ font-size:13px; color:var(--muted); }
+  .water-top .ml b{ color:var(--text); font-weight:600; }
+  .water-track{ height:15px; background:var(--bg); border-radius:99px; overflow:hidden; margin-bottom:7px; }
+  .water-fill{ height:100%; width:0; background:var(--water); border-radius:99px; transition:width .35s ease; }
+  .water-cups{ font-size:11px; color:var(--hint); margin-bottom:13px; }
+  .water-btns{ display:flex; gap:9px; }
+
+  .item{ display:flex; align-items:center; gap:11px; padding:12px 13px; background:var(--surface);
+    border-radius:var(--radius-sm); margin-bottom:7px; cursor:pointer; transition:background .15s, opacity .2s; }
+  .item:active{ background:var(--surface2); }
+  .box{ width:22px; height:22px; border-radius:6px; border:1.5px solid var(--line);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+  .box svg{ width:13px; height:13px; opacity:0; }
+  .item.on .box{ border-color:var(--teal); background:var(--teal); }
+  .item.on .box svg{ opacity:1; }
+  .item.on.habit .box{ border-color:var(--green); background:var(--green); }
+  .item .txt{ flex:1; }
+  .item .txt .t{ font-size:14px; font-weight:500; transition:all .2s; }
+  .item .txt .tm{ font-size:11px; color:var(--hint); margin-top:1px; }
+  .item.on .txt .t{ text-decoration:line-through; color:var(--hint); }
+  .item .ic{ font-size:17px; color:var(--muted); width:20px; text-align:center; }
+
+  .warn{ background:#241413; border:1px solid #3a1d1c; border-radius:var(--radius);
+    padding:14px 15px; margin-top:18px; }
+  .warn .wh{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:#f0807f; margin-bottom:7px; }
+  .warn p{ font-size:12px; color:#d99; line-height:1.6; }
+
+  .foot{ display:flex; gap:9px; margin-top:18px; }
+  button{ font-family:inherit; font-size:13px; font-weight:500; color:var(--text);
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:13px 10px; cursor:pointer; transition:background .15s, transform .1s; flex:1; }
+  button:active{ transform:scale(.97); background:var(--surface2); }
+  button.accent{ background:var(--teal-d); border-color:var(--teal-d); color:#eafff8; }
+  button.water-add{ flex:2; }
+  .ic-btn{ display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+  svg.i{ width:15px; height:15px; vertical-align:-2px; }
+  .note{ font-size:11px; color:var(--hint); text-align:center; margin-top:18px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>진용님 건강 트래커</h1>
+  <span class="date" id="date"></span>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="label">라미실 복용</div>
+    <div class="val"><span id="r-day">–</span><small> / 84일</small></div>
+    <div class="track"><div class="fill" id="r-fill" style="background:var(--blue)"></div></div>
+    <div class="sub" id="r-sub">시작일 미설정</div>
+  </div>
+  <div class="stat">
+    <div class="label">오늘 완료</div>
+    <div class="val"><span id="done">0</span><small> 항목</small></div>
+    <div class="track"><div class="fill" id="done-fill"></div></div>
+    <div class="sub" id="done-sub">0%</div>
+  </div>
+</div>
+
+<div class="section-h"><span class="dot" style="background:var(--water)"></span>물 마시기</div>
+<div class="water">
+  <div class="water-top">
+    <span style="font-size:14px;font-weight:500">오늘 수분</span>
+    <span class="ml"><b id="w-ml">0</b> / 2000ml</span>
+  </div>
+  <div class="water-track"><div class="water-fill" id="w-fill"></div></div>
+  <div class="water-cups"><span id="w-cups">0</span>잔 / 10잔 · 한 컵 200ml</div>
+  <div class="water-btns">
+    <button class="water-add accent ic-btn" id="w-add">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      한 컵 (200ml)
+    </button>
+    <button id="w-minus">취소</button>
+  </div>
+</div>
+
+<div class="section-h"><span class="dot" style="background:var(--blue)"></span>영양제 &amp; 라미실</div>
+<div id="supps"></div>
+
+<div class="section-h"><span class="dot" style="background:var(--green)"></span>오늘 습관</div>
+<div id="habits"></div>
+
+<div class="warn">
+  <div class="wh">
+    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    라미실 경고신호 — 있으면 복용중단 후 병원
+  </div>
+  <p>지속 메스꺼움 · 식욕저하 · 심한 피로 · 구토 · 오른쪽 윗배 통증 · 황달(눈/피부 노래짐) · 진한 갈색 소변 · 회색변</p>
+</div>
+
+<div class="foot">
+  <button id="reset">오늘 초기화</button>
+  <button id="setstart">라미실 시작일</button>
+</div>
+
+<div class="note">데이터는 이 기기에 저장됩니다 · 매일 자정 새 날짜로 갱신</div>
+
+<script>
+const SUPPS=[
+  ["아침 식후","비타민B + 비타민C","s_am"],
+  ["점심 식후","라미실 125mg×2알 (먼저)","s_rami"],
+  ["점심 식후","바나바잎 (10~20분 뒤)","s_bana"],
+  ["저녁 식후","오메가3 2알 + 마쿠가드","s_pm"],
+  ["저녁 (월·수·금)","D3+K2","s_d3"],
+  ["취침 전","마그네슘 2정","s_mag"]
+];
+const HABITS=[
+  ["절주 (오늘 금주)","M6 8h12M6 8a4 4 0 0 0 8 0M10 12v6M7 18h6","h_alc"],
+  ["식후 걷기 10~20분","M13 4a1 1 0 1 0 0 2 1 1 0 0 0 0-2M7 21l3-6 4 2 1 4M10 15l-1-5 4-1 2 3 3 1","h_walk"],
+  ["저녁 탄수화물 줄이기","M3 11h18M5 11a7 7 0 0 1 14 0M3 11v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2","h_carb"]
+];
+const CUP=200, GOAL=2000;
+const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#0e1512" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg>';
+
+function tk(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function load(k,def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+let state=load('h:'+tk(),{water:0});
+if(state.water===undefined) state.water=0;
+let start=load('h:rami_start',null);
+
+function ramiDay(){ if(!start) return null; return Math.floor((new Date(tk())-new Date(start))/86400000)+1; }
+
+function render(){
+  const d=new Date();
+  document.getElementById('date').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일';
+  const rd=ramiDay();
+  document.getElementById('r-day').textContent=(rd&&rd>0)?rd:'–';
+  document.getElementById('r-fill').style.width=(rd&&rd>0)?Math.min(100,Math.round(rd/84*100))+'%':'0%';
+  document.getElementById('r-sub').textContent=(rd&&rd>0)?(rd>=84?'복용 완료 ✓':'12주 중 '+Math.round(rd/84*100)+'%'):'시작일 미설정';
+
+  const ml=state.water||0;
+  document.getElementById('w-ml').textContent=ml;
+  document.getElementById('w-cups').textContent=Math.round(ml/CUP);
+  document.getElementById('w-fill').style.width=Math.min(100,Math.round(ml/GOAL*100))+'%';
+
+  const sc=document.getElementById('supps'); sc.innerHTML='';
+  SUPPS.forEach(([tm,label,key])=>sc.appendChild(mkItem(tm,label,key,false)));
+  const hc=document.getElementById('habits'); hc.innerHTML='';
+  HABITS.forEach(([label,path,key])=>hc.appendChild(mkHabit(label,path,key)));
+
+  const keys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+  let done=keys.filter(k=>state[k]).length;
+  let total=keys.length+1;
+  if(ml>=GOAL) done++;
+  document.getElementById('done').textContent=done;
+  const pct=Math.round(done/total*100);
+  document.getElementById('done-fill').style.width=pct+'%';
+  document.getElementById('done-sub').textContent=pct+'%';
+}
+
+function mkItem(tm,label,key){
+  const on=!!state[key];
+  const el=document.createElement('div');
+  el.className='item'+(on?' on':'');
+  el.innerHTML='<div class="box">'+CHECK+'</div><div class="txt"><div class="t">'+label+'</div><div class="tm">'+tm+'</div></div>';
+  el.onclick=()=>{ state[key]=!state[key]; save('h:'+tk(),state); render(); };
+  return el;
+}
+function mkHabit(label,path,key){
+  const on=!!state[key];
+  const el=document.createElement('div');
+  el.className='item habit'+(on?' on':'');
+  el.innerHTML='<div class="box">'+CHECK+'</div><div class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="'+path+'"/></svg></div><div class="txt"><div class="t">'+label+'</div></div>';
+  el.onclick=()=>{ state[key]=!state[key]; save('h:'+tk(),state); render(); };
+  return el;
+}
+
+document.getElementById('w-add').onclick=()=>{ state.water=(state.water||0)+CUP; save('h:'+tk(),state); render(); };
+document.getElementById('w-minus').onclick=()=>{ state.water=Math.max(0,(state.water||0)-CUP); save('h:'+tk(),state); render(); };
+document.getElementById('reset').onclick=()=>{ if(confirm('오늘 체크를 모두 초기화할까요?')){ state={water:0}; save('h:'+tk(),state); render(); } };
+document.getElementById('setstart').onclick=()=>{
+  const inp=prompt('라미실 복용 시작일 (예: 2026-06-15)', start||tk());
+  if(inp&&/^\d{4}-\d{2}-\d{2}$/.test(inp.trim())){ start=inp.trim(); save('h:rami_start',start); render(); }
+  else if(inp!==null){ alert('날짜 형식이 올바르지 않습니다. 예: 2026-06-15'); }
+};
+
+render();
+</script>
+</body>
+</html>
