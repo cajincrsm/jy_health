@@ -66,6 +66,26 @@
   .warn .wh{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:#f0807f; margin-bottom:7px; }
   .warn p{ font-size:12px; color:#d99; line-height:1.6; }
 
+  .week{ background:var(--surface); border-radius:var(--radius); padding:15px 16px; }
+  .week-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .week-row:last-child{ border-bottom:none; }
+  .week-day{ width:54px; flex-shrink:0; }
+  .week-day .d{ font-size:13px; font-weight:600; }
+  .week-day .w{ font-size:10px; color:var(--hint); }
+  .week-day.today .d{ color:var(--teal); }
+  .week-bars{ flex:1; display:flex; gap:4px; align-items:center; }
+  .pip{ width:13px; height:13px; border-radius:4px; background:var(--bg); border:1px solid var(--line); flex-shrink:0; }
+  .pip.on{ background:var(--teal); border-color:var(--teal); }
+  .pip.water{ background:var(--bg); border-color:var(--line); }
+  .pip.water.on{ background:var(--water); border-color:var(--water); }
+  .week-pct{ width:38px; text-align:right; font-size:12px; font-weight:600; color:var(--muted); flex-shrink:0; }
+  .week-legend{ display:flex; gap:13px; flex-wrap:wrap; margin-top:12px; padding-top:11px; border-top:1px solid var(--line); }
+  .week-legend span{ font-size:10px; color:var(--hint); display:flex; align-items:center; gap:4px; }
+  .week-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .week-empty{ font-size:12px; color:var(--hint); text-align:center; padding:14px 0; }
+  .week-streak{ display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  .week-streak .lbl{ font-size:12px; color:var(--muted); }
+  .week-streak .v{ font-size:15px; font-weight:600; }
   .foot{ display:flex; gap:9px; margin-top:18px; }
   button{ font-family:inherit; font-size:13px; font-weight:500; color:var(--text);
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
@@ -122,6 +142,20 @@
 
 <div class="section-h"><span class="dot" style="background:var(--green)"></span>오늘 습관</div>
 <div id="habits"></div>
+
+<div class="section-h"><span class="dot" style="background:var(--amber)"></span>최근 7일 기록</div>
+<div class="week">
+  <div class="week-streak">
+    <span class="lbl">연속 달성 (80% 이상)</span>
+    <span class="v"><span id="streak">0</span>일 🔥</span>
+  </div>
+  <div id="week-rows"></div>
+  <div class="week-legend">
+    <span><i style="background:var(--teal)"></i>영양제·습관</span>
+    <span><i style="background:var(--water)"></i>물 2L</span>
+    <span><i style="background:var(--bg);border:1px solid var(--line)"></i>미완료</span>
+  </div>
+</div>
 
 <div class="warn">
   <div class="wh">
@@ -191,6 +225,57 @@ function render(){
   const pct=Math.round(done/total*100);
   document.getElementById('done-fill').style.width=pct+'%';
   document.getElementById('done-sub').textContent=pct+'%';
+
+  renderWeek();
+}
+
+function dayPct(rec){
+  if(!rec) return 0;
+  const keys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+  let done=keys.filter(k=>rec[k]).length;
+  let total=keys.length+1;
+  if((rec.water||0)>=GOAL) done++;
+  return Math.round(done/total*100);
+}
+
+function renderWeek(){
+  const cont=document.getElementById('week-rows');
+  cont.innerHTML='';
+  const wdays=['일','월','화','수','목','금','토'];
+  const todayStr=tk();
+  let streak=0, streakActive=true;
+  const allKeys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+
+  for(let i=6;i>=0;i--){
+    const d=new Date();
+    d.setDate(d.getDate()-i);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const rec=load('h:'+key,null);
+    const pct=dayPct(rec);
+    const isToday=(key===todayStr);
+
+    const row=document.createElement('div');
+    row.className='week-row';
+    let pips='';
+    allKeys.forEach(k=>{ pips+='<div class="pip'+(rec&&rec[k]?' on':'')+'"></div>'; });
+    pips+='<div class="pip water'+(rec&&(rec.water||0)>=GOAL?' on':'')+'"></div>';
+    row.innerHTML='<div class="week-day'+(isToday?' today':'')+'"><div class="d">'+(d.getMonth()+1)+'/'+d.getDate()+'</div><div class="w">'+wdays[d.getDay()]+'요일</div></div>'
+      +'<div class="week-bars">'+pips+'</div>'
+      +'<div class="week-pct">'+pct+'%</div>';
+    cont.appendChild(row);
+  }
+
+  for(let i=0;i<60;i++){
+    const d=new Date();
+    d.setDate(d.getDate()-i);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const rec=load('h:'+key,null);
+    const pct=dayPct(rec);
+    if(i===0 && pct<80) continue;
+    if(pct>=80) streak++;
+    else break;
+  }
+  document.getElementById('streak').textContent=streak;
 }
 
 function mkItem(tm,label,key){
