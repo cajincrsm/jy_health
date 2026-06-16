@@ -36,6 +36,9 @@
 
   .section-h{ display:flex; align-items:center; gap:7px; margin:22px 2px 11px; font-size:14px; font-weight:600; }
   .section-h .dot{ width:8px; height:8px; border-radius:99px; }
+  .section-h.toggle{ cursor:pointer; user-select:none; }
+  .section-h .chev{ width:16px; height:16px; margin-left:auto; color:var(--muted); transition:transform .25s; }
+  .section-h.open .chev{ transform:rotate(180deg); }
 
   .water{ background:var(--surface); border-radius:var(--radius); padding:15px 16px; }
   .water-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
@@ -143,8 +146,8 @@
 <div class="section-h"><span class="dot" style="background:var(--green)"></span>오늘 습관</div>
 <div id="habits"></div>
 
-<div class="section-h"><span class="dot" style="background:var(--amber)"></span>최근 7일 기록</div>
-<div class="week">
+<div class="section-h toggle" id="week-toggle"><span class="dot" style="background:var(--amber)"></span>최근 7일 기록<svg class="chev" id="week-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
+<div class="week" id="week-panel" style="display:none">
   <div class="week-streak">
     <span class="lbl">연속 달성 (80% 이상)</span>
     <span class="v"><span id="streak">0</span>일 🔥</span>
@@ -243,28 +246,35 @@ function renderWeek(){
   cont.innerHTML='';
   const wdays=['일','월','화','수','목','금','토'];
   const todayStr=tk();
-  let streak=0, streakActive=true;
   const allKeys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
 
-  for(let i=6;i>=0;i--){
+  let shown=0;
+  for(let i=0;i<7;i++){
     const d=new Date();
     d.setDate(d.getDate()-i);
     const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const rec=load('h:'+key,null);
-    const pct=dayPct(rec);
     const isToday=(key===todayStr);
+    const hasData=rec && (Object.keys(rec).some(k=>k!=='water'&&rec[k]) || (rec.water||0)>0);
+    if(!hasData && !isToday) continue;
 
+    const pct=dayPct(rec);
     const row=document.createElement('div');
     row.className='week-row';
     let pips='';
     allKeys.forEach(k=>{ pips+='<div class="pip'+(rec&&rec[k]?' on':'')+'"></div>'; });
     pips+='<div class="pip water'+(rec&&(rec.water||0)>=GOAL?' on':'')+'"></div>';
-    row.innerHTML='<div class="week-day'+(isToday?' today':'')+'"><div class="d">'+(d.getMonth()+1)+'/'+d.getDate()+'</div><div class="w">'+wdays[d.getDay()]+'요일</div></div>'
+    row.innerHTML='<div class="week-day'+(isToday?' today':'')+'"><div class="d">'+(d.getMonth()+1)+'/'+d.getDate()+(isToday?' 오늘':'')+'</div><div class="w">'+wdays[d.getDay()]+'요일</div></div>'
       +'<div class="week-bars">'+pips+'</div>'
       +'<div class="week-pct">'+pct+'%</div>';
     cont.appendChild(row);
+    shown++;
+  }
+  if(shown===0){
+    cont.innerHTML='<div class="week-empty">아직 기록이 없습니다</div>';
   }
 
+  let streak=0;
   for(let i=0;i<60;i++){
     const d=new Date();
     d.setDate(d.getDate()-i);
@@ -302,6 +312,14 @@ document.getElementById('setstart').onclick=()=>{
   const inp=prompt('라미실 복용 시작일 (예: 2026-06-15)', start||tk());
   if(inp&&/^\d{4}-\d{2}-\d{2}$/.test(inp.trim())){ start=inp.trim(); save('h:rami_start',start); render(); }
   else if(inp!==null){ alert('날짜 형식이 올바르지 않습니다. 예: 2026-06-15'); }
+};
+
+document.getElementById('week-toggle').onclick=()=>{
+  const panel=document.getElementById('week-panel');
+  const hdr=document.getElementById('week-toggle');
+  const open=panel.style.display!=='none';
+  panel.style.display=open?'none':'block';
+  hdr.classList.toggle('open',!open);
 };
 
 render();
