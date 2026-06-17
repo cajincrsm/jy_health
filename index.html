@@ -48,6 +48,7 @@
   .water-fill{ height:100%; width:0; background:var(--water); border-radius:99px; transition:width .35s ease; }
   .water-cups{ font-size:11px; color:var(--hint); margin-bottom:13px; }
   .water-btns{ display:flex; gap:9px; }
+  #water-add-btns button{ font-size:14px; font-weight:600; }
 
   .item{ display:flex; align-items:center; gap:11px; padding:12px 13px; background:var(--surface);
     border-radius:var(--radius-sm); margin-bottom:7px; cursor:pointer; transition:background .15s, opacity .2s; }
@@ -130,18 +131,20 @@
     <span class="ml"><b id="w-ml">0</b> / 2000ml</span>
   </div>
   <div class="water-track"><div class="water-fill" id="w-fill"></div></div>
-  <div class="water-cups"><span id="w-cups">0</span>잔 / 10잔 · 한 컵 200ml</div>
-  <div class="water-btns">
-    <button class="water-add accent ic-btn" id="w-add">
-      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-      한 컵 (200ml)
-    </button>
-    <button id="w-minus">취소</button>
+  <div class="water-cups" id="w-cups-line">0ml · 목표 2000ml</div>
+  <div class="water-btns" id="water-add-btns"></div>
+  <div class="water-btns" style="margin-top:8px;">
+    <button id="w-minus">취소 (마지막)</button>
+    <button id="w-reset">초기화</button>
   </div>
 </div>
 
+<div class="section-h"><span class="dot" style="background:var(--amber)"></span>아침 간편식</div>
+<div id="meal"></div>
+
 <div class="section-h"><span class="dot" style="background:var(--blue)"></span>영양제 &amp; 라미실</div>
 <div id="supps"></div>
+<div id="supps-note" style="font-size:11px;color:var(--hint);margin:2px 2px 0;line-height:1.6;">※ 바나바잎·쿄릭갈릭은 라미실 4주 복용 후 추가 예정</div>
 
 <div class="section-h"><span class="dot" style="background:var(--green)"></span>오늘 습관</div>
 <div id="habits"></div>
@@ -178,18 +181,22 @@
 <script>
 const SUPPS=[
   ["아침 식후","비타민B + 비타민C","s_am"],
-  ["점심 식후","라미실 125mg×2알 (먼저)","s_rami"],
-  ["점심 식후","바나바잎 (10~20분 뒤)","s_bana"],
-  ["저녁 식후","오메가3 2알 + 마쿠가드","s_pm"],
+  ["점심 식후","라미실 125mg×2알 (단독)","s_rami"],
+  ["저녁 식후","오메가3 1알(800) + 마쿠가드","s_pm"],
   ["저녁 (월·수·금)","D3+K2","s_d3"],
-  ["취침 전","마그네슘 2정","s_mag"]
+  ["취침 전","마그네슘 2정","s_mag"],
+  ["취침 전","락토핏 유산균","s_lacto"]
 ];
 const HABITS=[
   ["절주 (오늘 금주)","M6 8h12M6 8a4 4 0 0 0 8 0M10 12v6M7 18h6","h_alc"],
   ["식후 걷기 10~20분","M13 4a1 1 0 1 0 0 2 1 1 0 0 0 0-2M7 21l3-6 4 2 1 4M10 15l-1-5 4-1 2 3 3 1","h_walk"],
   ["저녁 탄수화물 줄이기","M3 11h18M5 11a7 7 0 0 1 14 0M3 11v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2","h_carb"]
 ];
-const CUP=200, GOAL=2000;
+const MEAL=[
+  ["아침","무과당두유 1팩 + 달걀 2개 + 물 500","m_break"]
+];
+const WATER_BTNS=[200,250,500,1000];
+const GOAL=2000;
 const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#0e1512" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg>';
 
 function tk(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -212,15 +219,17 @@ function render(){
 
   const ml=state.water||0;
   document.getElementById('w-ml').textContent=ml;
-  document.getElementById('w-cups').textContent=Math.round(ml/CUP);
+  document.getElementById('w-cups-line').textContent=ml+'ml · 목표 '+GOAL+'ml'+(ml>=GOAL?' ✓':'');
   document.getElementById('w-fill').style.width=Math.min(100,Math.round(ml/GOAL*100))+'%';
 
+  const mc=document.getElementById('meal'); mc.innerHTML='';
+  MEAL.forEach(([tm,label,key])=>mc.appendChild(mkItem(tm,label,key,false)));
   const sc=document.getElementById('supps'); sc.innerHTML='';
   SUPPS.forEach(([tm,label,key])=>sc.appendChild(mkItem(tm,label,key,false)));
   const hc=document.getElementById('habits'); hc.innerHTML='';
   HABITS.forEach(([label,path,key])=>hc.appendChild(mkHabit(label,path,key)));
 
-  const keys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+  const keys=[...MEAL.map(m=>m[2]),...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
   let done=keys.filter(k=>state[k]).length;
   let total=keys.length+1;
   if(ml>=GOAL) done++;
@@ -234,7 +243,7 @@ function render(){
 
 function dayPct(rec){
   if(!rec) return 0;
-  const keys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+  const keys=[...MEAL.map(m=>m[2]),...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
   let done=keys.filter(k=>rec[k]).length;
   let total=keys.length+1;
   if((rec.water||0)>=GOAL) done++;
@@ -246,7 +255,7 @@ function renderWeek(){
   cont.innerHTML='';
   const wdays=['일','월','화','수','목','금','토'];
   const todayStr=tk();
-  const allKeys=[...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
+  const allKeys=[...MEAL.map(m=>m[2]),...SUPPS.map(s=>s[2]),...HABITS.map(h=>h[2])];
 
   let shown=0;
   for(let i=0;i<7;i++){
@@ -255,7 +264,7 @@ function renderWeek(){
     const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const rec=load('h:'+key,null);
     const isToday=(key===todayStr);
-    const hasData=rec && (Object.keys(rec).some(k=>k!=='water'&&rec[k]) || (rec.water||0)>0);
+    const hasData=rec && (Object.keys(rec).some(k=>k!=='water'&&k!=='wlog'&&rec[k]) || (rec.water||0)>0);
     if(!hasData && !isToday) continue;
 
     const pct=dayPct(rec);
@@ -305,9 +314,36 @@ function mkHabit(label,path,key){
   return el;
 }
 
-document.getElementById('w-add').onclick=()=>{ state.water=(state.water||0)+CUP; save('h:'+tk(),state); render(); };
-document.getElementById('w-minus').onclick=()=>{ state.water=Math.max(0,(state.water||0)-CUP); save('h:'+tk(),state); render(); };
-document.getElementById('reset').onclick=()=>{ if(confirm('오늘 체크를 모두 초기화할까요?')){ state={water:0}; save('h:'+tk(),state); render(); } };
+function renderWaterBtns(){
+  const wrap=document.getElementById('water-add-btns');
+  wrap.innerHTML='';
+  WATER_BTNS.forEach(amt=>{
+    const b=document.createElement('button');
+    b.className='accent';
+    b.textContent='+'+amt;
+    b.onclick=()=>{
+      state.water=(state.water||0)+amt;
+      state.wlog=state.wlog||[];
+      state.wlog.push(amt);
+      save('h:'+tk(),state); render();
+    };
+    wrap.appendChild(b);
+  });
+}
+document.getElementById('w-minus').onclick=()=>{
+  if(state.wlog&&state.wlog.length){
+    const last=state.wlog.pop();
+    state.water=Math.max(0,(state.water||0)-last);
+  } else {
+    state.water=Math.max(0,(state.water||0)-200);
+  }
+  save('h:'+tk(),state); render();
+};
+document.getElementById('w-reset').onclick=()=>{
+  state.water=0; state.wlog=[];
+  save('h:'+tk(),state); render();
+};
+document.getElementById('reset').onclick=()=>{ if(confirm('오늘 체크를 모두 초기화할까요?')){ state={water:0,wlog:[]}; save('h:'+tk(),state); render(); } };
 document.getElementById('setstart').onclick=()=>{
   const inp=prompt('라미실 복용 시작일 (예: 2026-06-15)', start||tk());
   if(inp&&/^\d{4}-\d{2}-\d{2}$/.test(inp.trim())){ start=inp.trim(); save('h:rami_start',start); render(); }
@@ -322,6 +358,7 @@ document.getElementById('week-toggle').onclick=()=>{
   hdr.classList.toggle('open',!open);
 };
 
+renderWaterBtns();
 render();
 </script>
 </body>
