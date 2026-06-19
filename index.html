@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0F6E56">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f7f6">
 <title>건강 트래커</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   :root{
-    --bg:#0e1512; --surface:#16201c; --surface2:#1d2a25; --line:#27352f;
-    --text:#eef3f0; --muted:#9fb3aa; --hint:#6c8077;
-    --teal:#2dccA5; --teal-d:#0f6e56; --blue:#378add; --water:#46a8e0;
-    --amber:#ef9f27; --red:#e24b4a; --green:#97c459;
+    --bg:#f5f7f6; --surface:#ffffff; --surface2:#eef2f0; --line:#e2e8e5;
+    --text:#1a2420; --muted:#5e7068; --hint:#94a59c;
+    --teal:#16a886; --teal-d:#0f6e56; --blue:#2b7fd0; --water:#3399d6;
+    --amber:#e08a1e; --red:#d83f3e; --green:#5a9e2f;
     --radius:14px; --radius-sm:10px;
   }
   body{
@@ -65,10 +65,10 @@
   .item.on .txt .t{ text-decoration:line-through; color:var(--hint); }
   .item .ic{ font-size:17px; color:var(--muted); width:20px; text-align:center; }
 
-  .warn{ background:#241413; border:1px solid #3a1d1c; border-radius:var(--radius);
+  .warn{ background:#fdf0ef; border:1px solid #f5d3d2; border-radius:var(--radius);
     padding:14px 15px; margin-top:18px; }
-  .warn .wh{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:#f0807f; margin-bottom:7px; }
-  .warn p{ font-size:12px; color:#d99; line-height:1.6; }
+  .warn .wh{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:#c5302f; margin-bottom:7px; }
+  .warn p{ font-size:12px; color:#b15a59; line-height:1.6; }
 
   .week{ background:var(--surface); border-radius:var(--radius); padding:15px 16px; }
   .week-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
@@ -90,6 +90,11 @@
   .week-streak{ display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; padding-bottom:12px; border-bottom:1px solid var(--line); }
   .week-streak .lbl{ font-size:12px; color:var(--muted); }
   .week-streak .v{ font-size:15px; font-weight:600; }
+  .week-row.editing{ background:rgba(45,204,165,0.08); border-radius:8px; }
+  #edit-banner{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface2); border:1px solid var(--teal-d); border-radius:var(--radius-sm);
+    padding:10px 13px; margin-bottom:14px; font-size:13px; color:var(--teal); }
+  #edit-banner button{ flex:0 0 auto; padding:7px 12px; font-size:12px; background:var(--teal-d); border-color:var(--teal-d); color:#eafff8; }
   .foot{ display:flex; gap:9px; margin-top:18px; }
   button{ font-family:inherit; font-size:13px; font-weight:500; color:var(--text);
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
@@ -107,6 +112,11 @@
 <div class="head">
   <h1>진용님 건강 트래커</h1>
   <span class="date" id="date"></span>
+</div>
+
+<div id="edit-banner" style="display:none">
+  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;vertical-align:-2px"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg> <span id="edit-banner-txt"></span></span>
+  <button id="back-today">오늘로 돌아가기</button>
 </div>
 
 <div class="stats">
@@ -197,19 +207,33 @@ const MEAL=[
 ];
 const WATER_BTNS=[200,250,500,1000];
 const GOAL=2000;
-const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#0e1512" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg>';
 
 function tk(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function load(k,def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 
-let state=load('h:'+tk(),{water:0});
+let editDate=tk();              // 현재 편집 중인 날짜 (기본=오늘)
+function cur(){ return 'h:'+editDate; }
+let state=load(cur(),{water:0});
 if(state.water===undefined) state.water=0;
 let start=load('h:rami_start',null);
+
+function loadDay(){ state=load(cur(),{water:0}); if(state.water===undefined) state.water=0; }
 
 function ramiDay(){ if(!start) return null; return Math.floor((new Date(tk())-new Date(start))/86400000)+1; }
 
 function render(){
+  const editing = (editDate!==tk());
+  const banner=document.getElementById('edit-banner');
+  if(editing){
+    const p=editDate.split('-');
+    banner.style.display='flex';
+    document.getElementById('edit-banner-txt').textContent=Number(p[1])+'월 '+Number(p[2])+'일 기록 수정 중';
+  } else {
+    banner.style.display='none';
+  }
+
   const d=new Date();
   document.getElementById('date').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일';
   const rd=ramiDay();
@@ -269,13 +293,15 @@ function renderWeek(){
 
     const pct=dayPct(rec);
     const row=document.createElement('div');
-    row.className='week-row';
+    row.className='week-row'+(key===editDate?' editing':'');
     let pips='';
     allKeys.forEach(k=>{ pips+='<div class="pip'+(rec&&rec[k]?' on':'')+'"></div>'; });
     pips+='<div class="pip water'+(rec&&(rec.water||0)>=GOAL?' on':'')+'"></div>';
     row.innerHTML='<div class="week-day'+(isToday?' today':'')+'"><div class="d">'+(d.getMonth()+1)+'/'+d.getDate()+(isToday?' 오늘':'')+'</div><div class="w">'+wdays[d.getDay()]+'요일</div></div>'
       +'<div class="week-bars">'+pips+'</div>'
       +'<div class="week-pct">'+pct+'%</div>';
+    row.style.cursor='pointer';
+    row.onclick=()=>{ editDate=key; loadDay(); render(); window.scrollTo({top:0,behavior:'smooth'}); };
     cont.appendChild(row);
     shown++;
   }
@@ -302,7 +328,7 @@ function mkItem(tm,label,key){
   const el=document.createElement('div');
   el.className='item'+(on?' on':'');
   el.innerHTML='<div class="box">'+CHECK+'</div><div class="txt"><div class="t">'+label+'</div><div class="tm">'+tm+'</div></div>';
-  el.onclick=()=>{ state[key]=!state[key]; save('h:'+tk(),state); render(); };
+  el.onclick=()=>{ state[key]=!state[key]; save(cur(),state); render(); };
   return el;
 }
 function mkHabit(label,path,key){
@@ -310,7 +336,7 @@ function mkHabit(label,path,key){
   const el=document.createElement('div');
   el.className='item habit'+(on?' on':'');
   el.innerHTML='<div class="box">'+CHECK+'</div><div class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="'+path+'"/></svg></div><div class="txt"><div class="t">'+label+'</div></div>';
-  el.onclick=()=>{ state[key]=!state[key]; save('h:'+tk(),state); render(); };
+  el.onclick=()=>{ state[key]=!state[key]; save(cur(),state); render(); };
   return el;
 }
 
@@ -325,7 +351,7 @@ function renderWaterBtns(){
       state.water=(state.water||0)+amt;
       state.wlog=state.wlog||[];
       state.wlog.push(amt);
-      save('h:'+tk(),state); render();
+      save(cur(),state); render();
     };
     wrap.appendChild(b);
   });
@@ -337,13 +363,13 @@ document.getElementById('w-minus').onclick=()=>{
   } else {
     state.water=Math.max(0,(state.water||0)-200);
   }
-  save('h:'+tk(),state); render();
+  save(cur(),state); render();
 };
 document.getElementById('w-reset').onclick=()=>{
   state.water=0; state.wlog=[];
-  save('h:'+tk(),state); render();
+  save(cur(),state); render();
 };
-document.getElementById('reset').onclick=()=>{ if(confirm('오늘 체크를 모두 초기화할까요?')){ state={water:0,wlog:[]}; save('h:'+tk(),state); render(); } };
+document.getElementById('reset').onclick=()=>{ const lbl=(editDate!==tk())?'이 날짜 체크를 초기화할까요?':'오늘 체크를 모두 초기화할까요?'; if(confirm(lbl)){ state={water:0,wlog:[]}; save(cur(),state); render(); } };
 document.getElementById('setstart').onclick=()=>{
   const inp=prompt('라미실 복용 시작일 (예: 2026-06-15)', start||tk());
   if(inp&&/^\d{4}-\d{2}-\d{2}$/.test(inp.trim())){ start=inp.trim(); save('h:rami_start',start); render(); }
@@ -357,6 +383,8 @@ document.getElementById('week-toggle').onclick=()=>{
   panel.style.display=open?'none':'block';
   hdr.classList.toggle('open',!open);
 };
+
+document.getElementById('back-today').onclick=()=>{ editDate=tk(); loadDay(); render(); };
 
 renderWaterBtns();
 render();
